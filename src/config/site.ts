@@ -14,7 +14,7 @@ export const siteConfig = {
   bio: "B.Tech Information Technology graduate focused on AI Engineering and Generative AI, with hands-on experience building and deploying Agentic AI systems, RAG applications, and machine learning services. Skilled in LangGraph, LangChain, FastAPI, PostgreSQL, Docker, AWS, and CI/CD, with experience developing tested, stateful, and production-oriented AI applications.",
   currentlyFocusedOn: "Agentic AI systems & RAG applications",
   location: "Dhanbad, Jharkhand, India",
-  url: "https://amanalam.dev", // TODO: replace with the deployed domain
+  url: "https://portfolio-tau-seven-apt5vzjy71.vercel.app/",
   email: "amankhan34356@gmail.com",
   contactMessage:
     "Have a project, an idea, or an opportunity in mind? I’m always open to discussing AI engineering, backend systems, and DevOps.",
