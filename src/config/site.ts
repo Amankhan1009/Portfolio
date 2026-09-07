@@ -94,6 +94,14 @@ export const siteConfig = {
   ],
   projects: [
     {
+      name: "DeepCite",
+      description:
+        "An AI-powered research agent that performs structured research, verifies sources, extracts evidence, fact-checks findings, and generates citation-backed reports with human-in-the-loop approval and research-quality evaluation.",
+      tags: ["Python", "LangGraph", "MCP", "FastAPI", "PostgreSQL"],
+      github: "https://github.com/Amankhan1009/Deepcite.git",
+      demo: "https://deepcite.vercel.app",
+    },
+    {
       name: "Postgres MCP Server",
       description:
         "Production-grade AI database assistant for PostgreSQL with schema introspection, injection-hardened SQL execution, and Groq-powered SQL generation, explanation, optimization, and business insights.",
