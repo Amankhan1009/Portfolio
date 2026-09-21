@@ -102,6 +102,25 @@ export const siteConfig = {
       demo: "https://deepcite.vercel.app",
     },
     {
+      name: "AegisAI — Enterprise AI Operations Platform",
+      description:
+        "A production-style AI operations platform designed for secure, reliable, observable, cost-aware, and testable AI service delivery.",
+      tags: [
+        "Python",
+        "FastAPI",
+        "Groq",
+        "PostgreSQL",
+        "Redis",
+        "Prometheus",
+        "OpenTelemetry",
+        "Docker",
+        "GitHub Actions",
+        "Streamlit",
+      ],
+      github: "https://github.com/Amankhan1009/aegis-ai",
+      demo: "https://aman-aegis-ai.streamlit.app",
+    },
+    {
       name: "Postgres MCP Server",
       description:
         "Production-grade AI database assistant for PostgreSQL with schema introspection, injection-hardened SQL execution, and Groq-powered SQL generation, explanation, optimization, and business insights.",
