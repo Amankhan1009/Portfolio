@@ -119,7 +119,6 @@ export const siteConfig = {
       ],
       github: "https://github.com/Amankhan1009/RAGBench",
       demo: "https://ragbench-frontend.onrender.com",
-      docs: "https://ragbench-backend.onrender.com/docs",
     },
     {
       name: "AegisAI — Enterprise AI Operations Platform",

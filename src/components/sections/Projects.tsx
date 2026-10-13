@@ -1,4 +1,4 @@
-import { ArrowUpRight, BookOpen, Container, GitBranch } from "lucide-react";
+import { ArrowUpRight, Container, GitBranch } from "lucide-react";
 
 import { siteConfig } from "@/config/site";
 
@@ -9,7 +9,6 @@ type Project = {
   github?: string;
   demo?: string;
   docker?: string;
-  docs?: string;
 };
 
 /** Projects section — a compact, data-driven showcase of selected work. */
@@ -59,17 +58,6 @@ export function Projects() {
                       className="hover:text-foreground transition-colors"
                     >
                       <ArrowUpRight size={19} strokeWidth={1.7} />
-                    </a>
-                  ) : null}
-                  {project.docs ? (
-                    <a
-                      href={project.docs}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label={`Open ${project.name} API documentation`}
-                      className="hover:text-foreground transition-colors"
-                    >
-                      <BookOpen size={18} strokeWidth={1.7} />
                     </a>
                   ) : null}
                   {project.docker ? (
