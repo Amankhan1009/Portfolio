@@ -102,6 +102,26 @@ export const siteConfig = {
       demo: "https://deepcite.vercel.app",
     },
     {
+      name: "RAGBench — Production LLM & RAG Evaluation Platform",
+      description:
+        "An automated evaluation, benchmarking, and CI/CD regression testing platform for production LLM, RAG, and AI agent systems. Features BYOK encryption, deterministic & LLM-as-a-judge evaluators, automated regression tolerance gates (±2%), and real-time LangSmith cloud observability.",
+      tags: [
+        "Python",
+        "FastAPI",
+        "Next.js",
+        "TypeScript",
+        "Tailwind CSS",
+        "LangSmith",
+        "Groq",
+        "Docker",
+        "SQLAlchemy",
+        "CI/CD",
+      ],
+      github: "https://github.com/Amankhan1009/RAGBench",
+      demo: "https://ragbench-frontend.onrender.com",
+      docs: "https://ragbench-backend.onrender.com/docs",
+    },
+    {
       name: "AegisAI — Enterprise AI Operations Platform",
       description:
         "A production-style AI operations platform designed for secure, reliable, observable, cost-aware, and testable AI service delivery.",
