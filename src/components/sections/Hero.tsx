@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { motion, useMotionValue, useSpring } from "framer-motion";
 import { ArrowDown } from "lucide-react";
 import { siteConfig } from "@/config/site";
@@ -99,6 +100,28 @@ export function Hero() {
       />
 
       <div className="relative z-10 flex flex-col items-center gap-6 text-center">
+        {/* Profile Avatar */}
+        <div className="relative">
+          <div
+            aria-hidden
+            className="absolute -inset-1 rounded-full opacity-50 blur-md"
+            style={{
+              background:
+                "radial-gradient(circle, var(--accent) 0%, transparent 70%)",
+            }}
+          />
+          <div className="border-border/80 bg-card relative h-28 w-28 overflow-hidden rounded-full border-2 shadow-2xl ring-2 ring-white/10 sm:h-32 sm:w-32">
+            <Image
+              src={siteConfig.avatar}
+              alt={siteConfig.name}
+              width={128}
+              height={128}
+              priority
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </div>
+
         <h1 className="text-display leading-[1.05] font-semibold tracking-tight">
           {siteConfig.name}
         </h1>

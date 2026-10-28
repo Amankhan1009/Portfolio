@@ -8,6 +8,7 @@
 
 export const siteConfig = {
   name: "Md Aman Alam",
+  avatar: "/profile-photo.png",
   role: "AI Engineer",
   roles: ["AI Engineer", "Platform Engineer", "DevOps Engineer"],
   tagline: "Building Production AI Systems with Agentic AI, MLOps & Cloud.",
