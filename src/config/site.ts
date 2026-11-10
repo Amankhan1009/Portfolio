@@ -95,6 +95,25 @@ export const siteConfig = {
   ],
   projects: [
     {
+      name: "Daily Hadith AI Agent — Autonomous Canonical Verification Engine",
+      description:
+        "A production autonomous agentic broadcast system engineered with LangGraph for canonical text integrity and zero-hallucination verification. Features strict calendar-day delivery idempotency, Groq LLM contextual reflection synthesis, automated multi-channel Telegram dispatch, and resilient GitHub Actions cloud orchestration backed by 106 automated tests.",
+      tags: [
+        "Python",
+        "LangGraph",
+        "FastAPI",
+        "Groq",
+        "PostgreSQL",
+        "SQLAlchemy",
+        "Docker",
+        "Telegram Bot API",
+        "GitHub Actions",
+        "CI/CD",
+      ],
+      github: "https://github.com/Amankhan1009/daily-hadith-ai-agent",
+      demo: "https://daily-hadith-ai-agent-46ie.onrender.com",
+    },
+    {
       name: "DeepCite",
       description:
         "An AI-powered research agent that performs structured research, verifies sources, extracts evidence, fact-checks findings, and generates citation-backed reports with human-in-the-loop approval and research-quality evaluation.",
@@ -139,25 +158,6 @@ export const siteConfig = {
       ],
       github: "https://github.com/Amankhan1009/aegis-ai",
       demo: "https://aman-aegis-ai.streamlit.app",
-    },
-    {
-      name: "Daily Hadith AI Agent — Autonomous Canonical Verification Engine",
-      description:
-        "A production autonomous agentic broadcast system engineered with LangGraph for canonical text integrity and zero-hallucination verification. Features strict calendar-day delivery idempotency, Groq LLM contextual reflection synthesis, automated multi-channel Telegram dispatch, and resilient GitHub Actions cloud orchestration backed by 106 automated tests.",
-      tags: [
-        "Python",
-        "LangGraph",
-        "FastAPI",
-        "Groq",
-        "PostgreSQL",
-        "SQLAlchemy",
-        "Docker",
-        "Telegram Bot API",
-        "GitHub Actions",
-        "CI/CD",
-      ],
-      github: "https://github.com/Amankhan1009/daily-hadith-ai-agent",
-      demo: "https://daily-hadith-ai-agent-46ie.onrender.com",
     },
     {
       name: "Postgres MCP Server",
