@@ -157,7 +157,7 @@ export const siteConfig = {
         "CI/CD",
       ],
       github: "https://github.com/Amankhan1009/daily-hadith-ai-agent",
-      demo: "https://t.me/daily_hadith_aman_bot",
+      demo: "https://daily-hadith-ai-agent-46ie.onrender.com",
     },
     {
       name: "Postgres MCP Server",
