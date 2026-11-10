@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowDown,
   ArrowUpRight,
   Bot,
   RotateCcw,
@@ -350,12 +351,53 @@ export function Chatbot() {
   const streamCompleteRef = useRef<boolean>(false);
   const pacingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // When user manually scrolls, check if they are reading higher up
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const touchStartY = useRef(0);
+
+  // Catch the very first pixel of user scroll-up from trackpad / mousewheel
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (e.deltaY < 0) {
+      // User is scrolling UP to read — immediately release the auto-scroll lock!
+      userScrolledUpRef.current = true;
+      setShowScrollBottom(true);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const currentY = e.touches[0].clientY;
+    if (currentY > touchStartY.current + 5) {
+      // User is swiping down to read upper content — immediately release auto-scroll lock!
+      userScrolledUpRef.current = true;
+      setShowScrollBottom(true);
+    }
+  };
+
   const handleScroll = () => {
     const el = scrollContainerRef.current;
     if (!el) return;
-    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 70;
-    userScrolledUpRef.current = !isAtBottom;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 20;
+    if (isAtBottom) {
+      userScrolledUpRef.current = false;
+      setShowScrollBottom(false);
+    } else {
+      userScrolledUpRef.current = true;
+      setShowScrollBottom(true);
+    }
+  };
+
+  const scrollToBottomExplicit = () => {
+    userScrolledUpRef.current = false;
+    setShowScrollBottom(false);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
   };
 
   useEffect(() => {
@@ -653,6 +695,9 @@ export function Chatbot() {
             <div
               ref={scrollContainerRef}
               onScroll={handleScroll}
+              onWheel={handleWheel}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
               className="flex-1 space-y-4 overflow-y-auto p-4"
             >
               {messages
@@ -759,6 +804,23 @@ export function Chatbot() {
                 </div>
               )}
             </div>
+
+            {/* Jump to bottom pill when user scrolled up during stream */}
+            <AnimatePresence>
+              {showScrollBottom && (
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  onClick={scrollToBottomExplicit}
+                  aria-label="Scroll to newest message"
+                  className="bg-card hover:bg-card-hover border-border text-foreground absolute bottom-20 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs shadow-lg transition-colors"
+                >
+                  <ArrowDown size={13} className="text-accent" />
+                  <span>Latest messages</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
 
             {/* Input area */}
             <div className="border-border bg-card/90 border-t p-3 backdrop-blur-md">
