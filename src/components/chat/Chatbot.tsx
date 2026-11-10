@@ -37,8 +37,8 @@ I can help you explore Aman's technical skills, production AI architectures, Age
 };
 
 /**
- * Lightweight inline markdown renderer for chat bubbles.
- * Safely parses tables into clean styled cards, and formats headings, bold, bullets, code, and links.
+ * Inline markdown renderer for chat bubbles.
+ * Converts headings, bullets, bold, code, links, and translates any table syntax into clean cards.
  */
 function FormattedMessage({ content }: { content: string }) {
   if (!content) return null;
@@ -57,7 +57,7 @@ function FormattedMessage({ content }: { content: string }) {
       continue;
     }
 
-    // Check if line is part of a markdown table (starts with | or contains " | ")
+    // Detect markdown table rows
     const isTableLine =
       trimmed.startsWith("|") ||
       trimmed.endsWith("|") ||
@@ -74,7 +74,6 @@ function FormattedMessage({ content }: { content: string }) {
           /^\|?[-:\s|]+\|?$/.test(lines[idx].trim()))
       ) {
         const lineContent = lines[idx].trim();
-        // Skip separator lines like |---|---|
         if (lineContent && !/^\|?[-:\s|]+\|?$/.test(lineContent)) {
           tableLines.push(lineContent);
         }
@@ -82,7 +81,6 @@ function FormattedMessage({ content }: { content: string }) {
       }
 
       if (tableLines.length > 0) {
-        // First line is headers if multiple lines exist
         const firstLineCells = tableLines[0]
           .split("|")
           .map((c) => c.trim())
@@ -107,7 +105,6 @@ function FormattedMessage({ content }: { content: string }) {
 
               if (cells.length === 0) return null;
 
-              // Usually cell[0] is title/name, or if cell[0] is number, cell[1] is name
               const isNumberedTitle =
                 /^\d+$/.test(cells[0]) && cells.length > 1;
               const title = isNumberedTitle
@@ -157,7 +154,7 @@ function FormattedMessage({ content }: { content: string }) {
       continue;
     }
 
-    // Headings (###, ##, #)
+    // Headings
     if (trimmed.startsWith("### ")) {
       renderedElements.push(
         <h4
@@ -183,7 +180,7 @@ function FormattedMessage({ content }: { content: string }) {
       continue;
     }
 
-    // Bullet points or numbered lists
+    // Bullet points
     const isBullet =
       trimmed.startsWith("- ") ||
       trimmed.startsWith("* ") ||
@@ -208,7 +205,7 @@ function FormattedMessage({ content }: { content: string }) {
       continue;
     }
 
-    // Normal paragraph
+    // Paragraph
     renderedElements.push(
       <p key={`p-${idx}`} className="text-sm">
         {parseMarkdownLine(trimmed)}
@@ -225,13 +222,12 @@ function FormattedMessage({ content }: { content: string }) {
 }
 
 function parseMarkdownLine(text: string): React.ReactNode[] {
-  // Regex matches [label](url), <url>, bare URLs, **bold**, `code`, and *italic*
   const tokenRegex =
     /(\[.*?\]\(https?:\/\/[^\s)]+\)|<https?:\/\/[^\s>]+>|https?:\/\/[^\s<>)"]+|\*\*.*?\*\*|`.*?`|\*[^*\n]+\*)/g;
   const parts = text.split(tokenRegex);
 
   return parts.map((part, i) => {
-    // Standard markdown link [text](url)
+    // Markdown link [text](url)
     if (part.startsWith("[") && part.includes("](") && part.endsWith(")")) {
       const match = part.match(/\[(.*?)\]\((https?:\/\/[^\s)]+)\)/);
       if (match) {
@@ -262,12 +258,6 @@ function parseMarkdownLine(text: string): React.ReactNode[] {
         url.includes("streamlit.app")
       )
         label = "Live Demo";
-      else {
-        try {
-          const parsed = new URL(url);
-          label = parsed.hostname;
-        } catch {}
-      }
 
       return (
         <a
@@ -294,12 +284,6 @@ function parseMarkdownLine(text: string): React.ReactNode[] {
         part.includes("streamlit.app")
       )
         label = "Live Demo";
-      else {
-        try {
-          const parsed = new URL(part);
-          label = parsed.hostname;
-        } catch {}
-      }
 
       return (
         <a
@@ -356,21 +340,82 @@ export function Chatbot() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const userScrolledUpRef = useRef<boolean>(false);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // Streaming pacing queue
+  const tokenQueueRef = useRef<string[]>([]);
+  const isPacingActiveRef = useRef<boolean>(false);
+  const streamCompleteRef = useRef<boolean>(false);
+  const pacingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // When user manually scrolls, check if they are reading higher up
+  const handleScroll = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 70;
+    userScrolledUpRef.current = !isAtBottom;
   };
 
   useEffect(() => {
     if (isOpen) {
-      scrollToBottom();
+      userScrolledUpRef.current = false;
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop =
+          scrollContainerRef.current.scrollHeight;
+      }
       if (window.innerWidth > 640) {
         setTimeout(() => inputRef.current?.focus(), 150);
       }
     }
-  }, [isOpen, messages, isLoading]);
+  }, [isOpen]);
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (pacingTimerRef.current) clearInterval(pacingTimerRef.current);
+    };
+  }, []);
+
+  const startWordByWordPacing = (targetId: string) => {
+    if (isPacingActiveRef.current) return;
+    isPacingActiveRef.current = true;
+
+    pacingTimerRef.current = setInterval(() => {
+      // If queue is empty
+      if (tokenQueueRef.current.length === 0) {
+        if (streamCompleteRef.current) {
+          if (pacingTimerRef.current) clearInterval(pacingTimerRef.current);
+          isPacingActiveRef.current = false;
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      // Smooth pacing: 1 token at a time, or 2-3 if backlog is growing
+      const drainCount =
+        tokenQueueRef.current.length > 25
+          ? 3
+          : tokenQueueRef.current.length > 10
+            ? 2
+            : 1;
+
+      const words = tokenQueueRef.current.splice(0, drainCount).join("");
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === targetId ? { ...msg, content: msg.content + words } : msg,
+        ),
+      );
+
+      // Only follow downward if user hasn't scrolled up to read earlier text
+      if (!userScrolledUpRef.current && scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop =
+          scrollContainerRef.current.scrollHeight;
+      }
+    }, 22); // 22ms per word gives a readable human typing speed (~45 wps)
+  };
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputValue).trim();
@@ -396,6 +441,21 @@ export function Chatbot() {
     setInputValue("");
     setErrorMessage(null);
     setIsLoading(true);
+
+    // Reset streaming queue and scroll tracking
+    tokenQueueRef.current = [];
+    streamCompleteRef.current = false;
+    userScrolledUpRef.current = false;
+
+    // Scroll down once so the user's question and the start of the response are in view
+    setTimeout(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }, 40);
 
     try {
       const payloadMessages = newMessages
@@ -424,25 +484,24 @@ export function Chatbot() {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let accumulated = "";
+
+      startWordByWordPacing(assistantMsgId);
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-        accumulated += chunk;
-
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMsgId ? { ...msg, content: accumulated } : msg,
-          ),
-        );
-
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        const tokens = chunk.match(/\S+|\s+/g) || [chunk];
+        tokenQueueRef.current.push(...tokens);
       }
+
+      streamCompleteRef.current = true;
     } catch (err: unknown) {
-      // Remove empty assistant placeholder if request failed
+      if (pacingTimerRef.current) clearInterval(pacingTimerRef.current);
+      isPacingActiveRef.current = false;
+      setIsLoading(false);
+
       setMessages((prev) =>
         prev.filter(
           (msg) => msg.id !== assistantMsgId || msg.content.length > 0,
@@ -453,8 +512,6 @@ export function Chatbot() {
           ? err.message
           : "An unexpected error occurred. Please try again.";
       setErrorMessage(msg);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -466,6 +523,11 @@ export function Chatbot() {
   };
 
   const handleResetChat = () => {
+    if (pacingTimerRef.current) clearInterval(pacingTimerRef.current);
+    isPacingActiveRef.current = false;
+    tokenQueueRef.current = [];
+    setIsLoading(false);
+
     setMessages([
       {
         ...INITIAL_WELCOME,
@@ -477,7 +539,6 @@ export function Chatbot() {
     if (inputRef.current) inputRef.current.focus();
   };
 
-  // Determine if we should show the typing bounce dots (waiting for first chunk)
   const isAwaitingFirstChunk =
     isLoading &&
     messages.length > 0 &&
@@ -588,8 +649,12 @@ export function Chatbot() {
               </div>
             </div>
 
-            {/* Messages Scroll Area */}
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+            {/* Messages Scroll Area with Intelligent Anchor */}
+            <div
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 space-y-4 overflow-y-auto p-4"
+            >
               {messages
                 .filter((m) => m.content.length > 0)
                 .map((message) => {
@@ -693,8 +758,6 @@ export function Chatbot() {
                   </div>
                 </div>
               )}
-
-              <div ref={messagesEndRef} />
             </div>
 
             {/* Input area */}

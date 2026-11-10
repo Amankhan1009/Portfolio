@@ -14,6 +14,40 @@ type ChatMessage = {
   content: string;
 };
 
+/**
+ * Intercepts and converts raw Markdown table rows into clean card markup on the fly.
+ */
+function convertTableLine(line: string): string | null {
+  const trimmed = line.trim();
+  // Filter out table separator row (e.g. |---|---|)
+  if (/^\|?[-:\s|]+\|?$/.test(trimmed)) {
+    return null;
+  }
+  if (!trimmed.includes("|")) return line;
+
+  const cells = trimmed
+    .split("|")
+    .map((c) => c.trim())
+    .filter(Boolean);
+  if (cells.length === 0) return null;
+
+  // Filter out table headers
+  if (cells.some((c) => /project|name|why|stack|tech|link|status/i.test(c))) {
+    return null;
+  }
+
+  // Data row conversion
+  const isNumbered = /^\d+$/.test(cells[0]) && cells.length > 1;
+  const title = isNumbered ? `${cells[0]}. ${cells[1]}` : cells[0];
+  const details = isNumbered ? cells.slice(2) : cells.slice(1);
+
+  let output = `\n### ${title}\n`;
+  for (const d of details) {
+    output += `• ${d}\n`;
+  }
+  return output;
+}
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Rate limiting by IP
@@ -159,16 +193,17 @@ export async function POST(req: NextRequest) {
     // Transform Groq's SSE stream into a clean, direct text stream for the client
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
-    let buffer = "";
+    let sseBuffer = "";
+    let lineBuffer = "";
 
     const transformStream = new TransformStream({
       transform(chunk, controller) {
-        buffer += decoder.decode(chunk, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        sseBuffer += decoder.decode(chunk, { stream: true });
+        const sseLines = sseBuffer.split("\n");
+        sseBuffer = sseLines.pop() || "";
 
-        for (const line of lines) {
-          const trimmed = line.trim();
+        for (const sseLine of sseLines) {
+          const trimmed = sseLine.trim();
           if (!trimmed || trimmed === "data: [DONE]") continue;
 
           if (trimmed.startsWith("data: ")) {
@@ -176,7 +211,20 @@ export async function POST(req: NextRequest) {
               const data = JSON.parse(trimmed.slice(6));
               const delta = data.choices?.[0]?.delta?.content;
               if (delta) {
-                controller.enqueue(encoder.encode(delta));
+                lineBuffer += delta;
+
+                // Process complete lines to catch and convert tables
+                if (lineBuffer.includes("\n")) {
+                  const contentLines = lineBuffer.split("\n");
+                  lineBuffer = contentLines.pop() || "";
+
+                  for (const cl of contentLines) {
+                    const converted = convertTableLine(cl);
+                    if (converted !== null) {
+                      controller.enqueue(encoder.encode(converted + "\n"));
+                    }
+                  }
+                }
               }
             } catch {
               // Ignore incomplete SSE line
@@ -185,20 +233,10 @@ export async function POST(req: NextRequest) {
         }
       },
       flush(controller) {
-        const trimmed = buffer.trim();
-        if (
-          trimmed &&
-          trimmed.startsWith("data: ") &&
-          trimmed !== "data: [DONE]"
-        ) {
-          try {
-            const data = JSON.parse(trimmed.slice(6));
-            const delta = data.choices?.[0]?.delta?.content;
-            if (delta) {
-              controller.enqueue(encoder.encode(delta));
-            }
-          } catch {
-            // Ignore parse errors on flush
+        if (lineBuffer) {
+          const converted = convertTableLine(lineBuffer);
+          if (converted !== null) {
+            controller.enqueue(encoder.encode(converted));
           }
         }
       },
