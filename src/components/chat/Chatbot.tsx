@@ -776,7 +776,7 @@ export function Chatbot() {
                   onKeyDown={handleKeyDown}
                   placeholder="Ask about Aman's projects, stack, experience..."
                   rows={1}
-                  maxLength={1000}
+                  maxLength={2000}
                   className="text-foreground placeholder:text-foreground-subtle max-h-24 flex-1 resize-none bg-transparent px-1 py-1 text-sm outline-none"
                   style={{ minHeight: "24px" }}
                 />
@@ -796,7 +796,7 @@ export function Chatbot() {
               </form>
               <div className="mt-2 flex items-center justify-between px-1 text-[10px] text-zinc-500">
                 <span>Enter to send, Shift+Enter for new line</span>
-                <span>Max 1000 chars</span>
+                <span>Max 2000 chars</span>
               </div>
             </div>
           </motion.div>

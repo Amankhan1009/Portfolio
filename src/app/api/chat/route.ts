@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "openai/gpt-oss-120b";
-const MAX_USER_MESSAGE_LENGTH = 1000;
+const MAX_USER_MESSAGE_LENGTH = 2000;
 const MAX_HISTORY_TURNS = 8; // Retain last 8 turns (4 user + 4 assistant) to optimize token efficiency
 
 type ChatMessage = {
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
 
     // 5. Call Groq Cloud API with stream enabled
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for comprehensive replies
 
     const groqRes = await fetch(GROQ_API_URL, {
       method: "POST",
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
         model: GROQ_MODEL,
         messages: payloadMessages,
         temperature: 0.3,
-        max_tokens: 1024,
+        max_tokens: 4000,
         stream: true,
       }),
       signal: controller.signal,
