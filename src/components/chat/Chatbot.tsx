@@ -38,99 +38,196 @@ I can help you explore Aman's technical skills, production AI architectures, Age
 
 /**
  * Lightweight inline markdown renderer for chat bubbles.
- * Safely parses headings, bold, bullet points, inline code, and markdown links.
+ * Safely parses tables into clean styled cards, and formats headings, bold, bullets, code, and links.
  */
 function FormattedMessage({ content }: { content: string }) {
   if (!content) return null;
 
   const lines = content.split("\n");
+  const renderedElements: React.ReactNode[] = [];
+
+  let idx = 0;
+  while (idx < lines.length) {
+    const rawLine = lines[idx];
+    const trimmed = rawLine.trim();
+
+    if (!trimmed) {
+      renderedElements.push(<div key={`blank-${idx}`} className="h-1.5" />);
+      idx++;
+      continue;
+    }
+
+    // Check if line is part of a markdown table (starts with | or contains " | ")
+    const isTableLine =
+      trimmed.startsWith("|") ||
+      trimmed.endsWith("|") ||
+      trimmed.includes(" | ") ||
+      /^\|?[-:\s|]+\|?$/.test(trimmed);
+
+    if (isTableLine) {
+      const tableLines: string[] = [];
+      while (
+        idx < lines.length &&
+        (lines[idx].trim().startsWith("|") ||
+          lines[idx].trim().endsWith("|") ||
+          lines[idx].trim().includes(" | ") ||
+          /^\|?[-:\s|]+\|?$/.test(lines[idx].trim()))
+      ) {
+        const lineContent = lines[idx].trim();
+        // Skip separator lines like |---|---|
+        if (lineContent && !/^\|?[-:\s|]+\|?$/.test(lineContent)) {
+          tableLines.push(lineContent);
+        }
+        idx++;
+      }
+
+      if (tableLines.length > 0) {
+        // First line is headers if multiple lines exist
+        const firstLineCells = tableLines[0]
+          .split("|")
+          .map((c) => c.trim())
+          .filter(Boolean);
+
+        const isFirstLineHeader =
+          tableLines.length > 1 &&
+          firstLineCells.some((c) =>
+            /project|name|stack|tech|link|status|description|why/i.test(c),
+          );
+
+        const headers = isFirstLineHeader ? firstLineCells : [];
+        const rows = isFirstLineHeader ? tableLines.slice(1) : tableLines;
+
+        renderedElements.push(
+          <div key={`table-block-${idx}`} className="my-2.5 space-y-2">
+            {rows.map((rowStr, rIdx) => {
+              const cells = rowStr
+                .split("|")
+                .map((c) => c.trim())
+                .filter(Boolean);
+
+              if (cells.length === 0) return null;
+
+              // Usually cell[0] is title/name, or if cell[0] is number, cell[1] is name
+              const isNumberedTitle =
+                /^\d+$/.test(cells[0]) && cells.length > 1;
+              const title = isNumberedTitle
+                ? `${cells[0]}. ${cells[1]}`
+                : cells[0];
+              const details = isNumberedTitle ? cells.slice(2) : cells.slice(1);
+
+              return (
+                <div
+                  key={`card-${rIdx}`}
+                  className="border-border/80 bg-card-hover/40 hover:border-accent/40 rounded-xl border p-3 shadow-xs transition-colors"
+                >
+                  <div className="text-foreground flex items-center gap-1.5 text-sm font-semibold">
+                    {parseMarkdownLine(title)}
+                  </div>
+
+                  {details.length > 0 && (
+                    <div className="mt-2 space-y-1.5 text-xs">
+                      {details.map((detail, dIdx) => {
+                        const headerIndex = isNumberedTitle
+                          ? dIdx + 2
+                          : dIdx + 1;
+                        const headerLabel = headers[headerIndex];
+
+                        return (
+                          <div
+                            key={dIdx}
+                            className="text-foreground-muted leading-relaxed"
+                          >
+                            {headerLabel && (
+                              <span className="text-foreground-subtle mb-0.5 block font-mono text-[10px] tracking-wider uppercase">
+                                {headerLabel}:
+                              </span>
+                            )}
+                            <div>{parseMarkdownLine(detail)}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>,
+        );
+      }
+      continue;
+    }
+
+    // Headings (###, ##, #)
+    if (trimmed.startsWith("### ")) {
+      renderedElements.push(
+        <h4
+          key={`h4-${idx}`}
+          className="text-foreground mt-3.5 mb-1 text-sm font-semibold tracking-tight"
+        >
+          {parseMarkdownLine(trimmed.slice(4))}
+        </h4>,
+      );
+      idx++;
+      continue;
+    }
+    if (trimmed.startsWith("## ")) {
+      renderedElements.push(
+        <h3
+          key={`h3-${idx}`}
+          className="text-foreground mt-4 mb-1 text-base font-semibold tracking-tight"
+        >
+          {parseMarkdownLine(trimmed.slice(3))}
+        </h3>,
+      );
+      idx++;
+      continue;
+    }
+
+    // Bullet points or numbered lists
+    const isBullet =
+      trimmed.startsWith("- ") ||
+      trimmed.startsWith("* ") ||
+      trimmed.startsWith("• ");
+    const isNumbered = /^\d+\.\s/.test(trimmed);
+
+    if (isBullet || isNumbered) {
+      const textContent = isBullet
+        ? trimmed.slice(2)
+        : trimmed.replace(/^\d+\.\s/, "");
+
+      renderedElements.push(
+        <div
+          key={`bullet-${idx}`}
+          className="my-0.5 flex items-start gap-2 pl-1"
+        >
+          <span className="text-accent mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
+          <div className="flex-1 text-sm">{parseMarkdownLine(textContent)}</div>
+        </div>,
+      );
+      idx++;
+      continue;
+    }
+
+    // Normal paragraph
+    renderedElements.push(
+      <p key={`p-${idx}`} className="text-sm">
+        {parseMarkdownLine(trimmed)}
+      </p>,
+    );
+    idx++;
+  }
 
   return (
-    <div className="space-y-2 text-sm leading-relaxed">
-      {lines.map((line, lineIdx) => {
-        const trimmed = line.trim();
-
-        if (!trimmed) {
-          return <div key={lineIdx} className="h-1" />;
-        }
-
-        // Markdown Table Row detection (e.g. | col1 | col2 | or |---|---|)
-        if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
-          // Skip table separator line
-          if (/^\|[-:\s|]+\|$/.test(trimmed)) {
-            return null;
-          }
-          const cells = trimmed
-            .split("|")
-            .map((c) => c.trim())
-            .filter((c) => c.length > 0);
-
-          return (
-            <div
-              key={lineIdx}
-              className="border-border bg-card-hover/60 my-1.5 flex flex-wrap gap-2 rounded-lg border p-2 text-xs"
-            >
-              {cells.map((cell, cIdx) => (
-                <div key={cIdx} className="text-foreground">
-                  {parseMarkdownLine(cell)}
-                </div>
-              ))}
-            </div>
-          );
-        }
-
-        // Headings
-        if (trimmed.startsWith("### ")) {
-          return (
-            <h4
-              key={lineIdx}
-              className="text-foreground mt-3 mb-1 text-sm font-semibold tracking-tight"
-            >
-              {parseMarkdownLine(trimmed.slice(4))}
-            </h4>
-          );
-        }
-        if (trimmed.startsWith("## ")) {
-          return (
-            <h3
-              key={lineIdx}
-              className="text-foreground mt-3.5 mb-1 text-base font-semibold tracking-tight"
-            >
-              {parseMarkdownLine(trimmed.slice(3))}
-            </h3>
-          );
-        }
-
-        // Bullet point
-        const isBullet =
-          trimmed.startsWith("- ") ||
-          trimmed.startsWith("* ") ||
-          trimmed.startsWith("• ");
-        const isNumbered = /^\d+\.\s/.test(trimmed);
-
-        if (isBullet || isNumbered) {
-          const textContent = isBullet
-            ? trimmed.slice(2)
-            : trimmed.replace(/^\d+\.\s/, "");
-
-          return (
-            <div key={lineIdx} className="flex items-start gap-2 pl-1">
-              <span className="text-accent mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
-              <div className="flex-1">{parseMarkdownLine(textContent)}</div>
-            </div>
-          );
-        }
-
-        return <p key={lineIdx}>{parseMarkdownLine(line)}</p>;
-      })}
+    <div className="space-y-1.5 text-sm leading-relaxed">
+      {renderedElements}
     </div>
   );
 }
 
 function parseMarkdownLine(text: string): React.ReactNode[] {
-  // Regex matches [label](url), <url>, **bold**, `code`, and *italic*
+  // Regex matches [label](url), <url>, bare URLs, **bold**, `code`, and *italic*
   const tokenRegex =
-    /(\[.*?\]\(https?:\/\/[^\s)]+\)|<https?:\/\/[^\s>]+>|\*\*.*?\*\*|`.*?`|\*[^*\n]+\*)/g;
+    /(\[.*?\]\(https?:\/\/[^\s)]+\)|<https?:\/\/[^\s>]+>|https?:\/\/[^\s<>)"]+|\*\*.*?\*\*|`.*?`|\*[^*\n]+\*)/g;
   const parts = text.split(tokenRegex);
 
   return parts.map((part, i) => {
@@ -156,21 +253,58 @@ function parseMarkdownLine(text: string): React.ReactNode[] {
     // Angle bracket link <https://...>
     if (part.startsWith("<http") && part.endsWith(">")) {
       const url = part.slice(1, -1);
-      let label = url;
-      try {
-        const parsed = new URL(url);
-        label =
-          parsed.pathname.length > 1
-            ? parsed.pathname.split("/").pop() || parsed.hostname
-            : parsed.hostname;
-      } catch {
-        // fallback
+      let label = "Link";
+      if (url.includes("github.com")) label = "GitHub Repository";
+      else if (url.includes("t.me")) label = "Telegram Bot";
+      else if (
+        url.includes("onrender.com") ||
+        url.includes("vercel.app") ||
+        url.includes("streamlit.app")
+      )
+        label = "Live Demo";
+      else {
+        try {
+          const parsed = new URL(url);
+          label = parsed.hostname;
+        } catch {}
       }
 
       return (
         <a
           key={i}
           href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-accent hover:text-accent-hover inline-flex items-center gap-0.5 underline transition-colors"
+        >
+          <span>{label}</span>
+          <ArrowUpRight size={12} className="inline shrink-0" />
+        </a>
+      );
+    }
+
+    // Bare URL (e.g. https://github.com/...)
+    if (part.startsWith("http://") || part.startsWith("https://")) {
+      let label = "Link";
+      if (part.includes("github.com")) label = "GitHub Repository";
+      else if (part.includes("t.me")) label = "Telegram Bot";
+      else if (
+        part.includes("onrender.com") ||
+        part.includes("vercel.app") ||
+        part.includes("streamlit.app")
+      )
+        label = "Live Demo";
+      else {
+        try {
+          const parsed = new URL(part);
+          label = parsed.hostname;
+        } catch {}
+      }
+
+      return (
+        <a
+          key={i}
+          href={part}
           target="_blank"
           rel="noopener noreferrer"
           className="text-accent hover:text-accent-hover inline-flex items-center gap-0.5 underline transition-colors"
