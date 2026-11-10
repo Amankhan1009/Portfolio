@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "GROQ_API_KEY is not configured on the server. Please add your key to .env.local.",
+            "GROQ_API_KEY is not configured on the server. Please ensure the GROQ_API_KEY environment variable is set in your hosting provider settings.",
         },
         { status: 503 },
       );
@@ -103,9 +103,9 @@ export async function POST(req: NextRequest) {
       ...contextHistory,
     ];
 
-    // 5. Call Groq Cloud API with exact specified model
+    // 5. Call Groq Cloud API with stream enabled
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 35000); // 35s timeout
 
     const groqRes = await fetch(GROQ_API_URL, {
       method: "POST",
@@ -118,6 +118,7 @@ export async function POST(req: NextRequest) {
         messages: payloadMessages,
         temperature: 0.3,
         max_tokens: 1024,
+        stream: true,
       }),
       signal: controller.signal,
     }).finally(() => clearTimeout(timeoutId));
@@ -155,15 +156,60 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const groqData = await groqRes.json();
-    const replyContent =
-      groqData?.choices?.[0]?.message?.content ||
-      "I apologize, but I couldn't generate a response at this time.";
+    // Transform Groq's SSE stream into a clean, direct text stream for the client
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    let buffer = "";
 
-    return NextResponse.json({
-      role: "assistant",
-      content: replyContent,
-      model: GROQ_MODEL,
+    const transformStream = new TransformStream({
+      transform(chunk, controller) {
+        buffer += decoder.decode(chunk, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === "data: [DONE]") continue;
+
+          if (trimmed.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(trimmed.slice(6));
+              const delta = data.choices?.[0]?.delta?.content;
+              if (delta) {
+                controller.enqueue(encoder.encode(delta));
+              }
+            } catch {
+              // Ignore incomplete SSE line
+            }
+          }
+        }
+      },
+      flush(controller) {
+        const trimmed = buffer.trim();
+        if (
+          trimmed &&
+          trimmed.startsWith("data: ") &&
+          trimmed !== "data: [DONE]"
+        ) {
+          try {
+            const data = JSON.parse(trimmed.slice(6));
+            const delta = data.choices?.[0]?.delta?.content;
+            if (delta) {
+              controller.enqueue(encoder.encode(delta));
+            }
+          } catch {
+            // Ignore parse errors on flush
+          }
+        }
+      },
+    });
+
+    return new Response(groqRes.body?.pipeThrough(transformStream), {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "X-Content-Type-Options": "nosniff",
+      },
     });
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") {

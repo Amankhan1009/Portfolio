@@ -38,9 +38,11 @@ I can help you explore Aman's technical skills, production AI architectures, Age
 
 /**
  * Lightweight inline markdown renderer for chat bubbles.
- * Safely parses bold, bullet points, inline code, and markdown links.
+ * Safely parses headings, bold, bullet points, inline code, and markdown links.
  */
 function FormattedMessage({ content }: { content: string }) {
+  if (!content) return null;
+
   const lines = content.split("\n");
 
   return (
@@ -52,34 +54,87 @@ function FormattedMessage({ content }: { content: string }) {
           return <div key={lineIdx} className="h-1" />;
         }
 
-        // Bullet point
-        const isBullet = trimmed.startsWith("- ") || trimmed.startsWith("* ");
-        const textContent = isBullet ? trimmed.slice(2) : line;
+        // Markdown Table Row detection (e.g. | col1 | col2 | or |---|---|)
+        if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+          // Skip table separator line
+          if (/^\|[-:\s|]+\|$/.test(trimmed)) {
+            return null;
+          }
+          const cells = trimmed
+            .split("|")
+            .map((c) => c.trim())
+            .filter((c) => c.length > 0);
 
-        // Simple tokenizer for bold, code, and links
-        const parsedSegments = parseMarkdownLine(textContent);
-
-        if (isBullet) {
           return (
-            <div key={lineIdx} className="flex items-start gap-2 pl-1">
-              <span className="text-accent mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
-              <div className="flex-1">{parsedSegments}</div>
+            <div
+              key={lineIdx}
+              className="border-border bg-card-hover/60 my-1.5 flex flex-wrap gap-2 rounded-lg border p-2 text-xs"
+            >
+              {cells.map((cell, cIdx) => (
+                <div key={cIdx} className="text-foreground">
+                  {parseMarkdownLine(cell)}
+                </div>
+              ))}
             </div>
           );
         }
 
-        return <p key={lineIdx}>{parsedSegments}</p>;
+        // Headings
+        if (trimmed.startsWith("### ")) {
+          return (
+            <h4
+              key={lineIdx}
+              className="text-foreground mt-3 mb-1 text-sm font-semibold tracking-tight"
+            >
+              {parseMarkdownLine(trimmed.slice(4))}
+            </h4>
+          );
+        }
+        if (trimmed.startsWith("## ")) {
+          return (
+            <h3
+              key={lineIdx}
+              className="text-foreground mt-3.5 mb-1 text-base font-semibold tracking-tight"
+            >
+              {parseMarkdownLine(trimmed.slice(3))}
+            </h3>
+          );
+        }
+
+        // Bullet point
+        const isBullet =
+          trimmed.startsWith("- ") ||
+          trimmed.startsWith("* ") ||
+          trimmed.startsWith("• ");
+        const isNumbered = /^\d+\.\s/.test(trimmed);
+
+        if (isBullet || isNumbered) {
+          const textContent = isBullet
+            ? trimmed.slice(2)
+            : trimmed.replace(/^\d+\.\s/, "");
+
+          return (
+            <div key={lineIdx} className="flex items-start gap-2 pl-1">
+              <span className="text-accent mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
+              <div className="flex-1">{parseMarkdownLine(textContent)}</div>
+            </div>
+          );
+        }
+
+        return <p key={lineIdx}>{parseMarkdownLine(line)}</p>;
       })}
     </div>
   );
 }
 
 function parseMarkdownLine(text: string): React.ReactNode[] {
-  // Regex matches [label](url), **bold**, and `code`
-  const tokenRegex = /(\[.*?\]\(https?:\/\/[^\s)]+\)|\*\*.*?\*\*|`.*?`)/g;
+  // Regex matches [label](url), <url>, **bold**, `code`, and *italic*
+  const tokenRegex =
+    /(\[.*?\]\(https?:\/\/[^\s)]+\)|<https?:\/\/[^\s>]+>|\*\*.*?\*\*|`.*?`|\*[^*\n]+\*)/g;
   const parts = text.split(tokenRegex);
 
   return parts.map((part, i) => {
+    // Standard markdown link [text](url)
     if (part.startsWith("[") && part.includes("](") && part.endsWith(")")) {
       const match = part.match(/\[(.*?)\]\((https?:\/\/[^\s)]+)\)/);
       if (match) {
@@ -98,6 +153,35 @@ function parseMarkdownLine(text: string): React.ReactNode[] {
       }
     }
 
+    // Angle bracket link <https://...>
+    if (part.startsWith("<http") && part.endsWith(">")) {
+      const url = part.slice(1, -1);
+      let label = url;
+      try {
+        const parsed = new URL(url);
+        label =
+          parsed.pathname.length > 1
+            ? parsed.pathname.split("/").pop() || parsed.hostname
+            : parsed.hostname;
+      } catch {
+        // fallback
+      }
+
+      return (
+        <a
+          key={i}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-accent hover:text-accent-hover inline-flex items-center gap-0.5 underline transition-colors"
+        >
+          <span>{label}</span>
+          <ArrowUpRight size={12} className="inline shrink-0" />
+        </a>
+      );
+    }
+
+    // Bold **text**
     if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
       return (
         <strong key={i} className="text-foreground font-semibold">
@@ -106,6 +190,7 @@ function parseMarkdownLine(text: string): React.ReactNode[] {
       );
     }
 
+    // Inline code `code`
     if (part.startsWith("`") && part.endsWith("`") && part.length >= 2) {
       return (
         <code
@@ -114,6 +199,15 @@ function parseMarkdownLine(text: string): React.ReactNode[] {
         >
           {part.slice(1, -1)}
         </code>
+      );
+    }
+
+    // Italic *text*
+    if (part.startsWith("*") && part.endsWith("*") && part.length >= 2) {
+      return (
+        <em key={i} className="text-foreground-muted italic">
+          {part.slice(1, -1)}
+        </em>
       );
     }
 
@@ -131,7 +225,6 @@ export function Chatbot() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll to bottom of messages
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -139,7 +232,6 @@ export function Chatbot() {
   useEffect(() => {
     if (isOpen) {
       scrollToBottom();
-      // Focus input when chat opens on desktop
       if (window.innerWidth > 640) {
         setTimeout(() => inputRef.current?.focus(), 150);
       }
@@ -157,14 +249,21 @@ export function Chatbot() {
       timestamp: new Date(),
     };
 
+    const assistantMsgId = (Date.now() + 1).toString();
+    const placeholderAssistant: Message = {
+      id: assistantMsgId,
+      role: "assistant",
+      content: "",
+      timestamp: new Date(),
+    };
+
     const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    setMessages([...newMessages, placeholderAssistant]);
     setInputValue("");
     setErrorMessage(null);
     setIsLoading(true);
 
     try {
-      // Map to API format (excluding the local welcome note from payload)
       const payloadMessages = newMessages
         .filter((m) => m.id !== "welcome")
         .map((m) => ({
@@ -178,21 +277,43 @@ export function Chatbot() {
         body: JSON.stringify({ messages: payloadMessages }),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data.error || "Failed to get a response from AI.");
+        const data = await res.json().catch(() => null);
+        throw new Error(
+          data?.error || `Request failed with status ${res.status}`,
+        );
       }
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.content,
-        timestamp: new Date(),
-      };
+      if (!res.body) {
+        throw new Error("No response stream received from server.");
+      }
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        accumulated += chunk;
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMsgId ? { ...msg, content: accumulated } : msg,
+          ),
+        );
+
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
     } catch (err: unknown) {
+      // Remove empty assistant placeholder if request failed
+      setMessages((prev) =>
+        prev.filter(
+          (msg) => msg.id !== assistantMsgId || msg.content.length > 0,
+        ),
+      );
       const msg =
         err instanceof Error
           ? err.message
@@ -222,6 +343,13 @@ export function Chatbot() {
     if (inputRef.current) inputRef.current.focus();
   };
 
+  // Determine if we should show the typing bounce dots (waiting for first chunk)
+  const isAwaitingFirstChunk =
+    isLoading &&
+    messages.length > 0 &&
+    messages[messages.length - 1].role === "assistant" &&
+    messages[messages.length - 1].content === "";
+
   return (
     <>
       {/* Floating Action Button */}
@@ -238,7 +366,6 @@ export function Chatbot() {
               : "bg-accent text-accent-foreground shadow-accent/25 hover:bg-accent-hover ring-4 ring-blue-500/20",
           )}
         >
-          {/* Subtle pulse effect when closed */}
           {!isOpen && (
             <span
               aria-hidden
@@ -285,7 +412,7 @@ export function Chatbot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="border-border bg-card/95 fixed right-4 bottom-22 z-50 flex h-[82vh] max-h-[640px] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl sm:right-7 sm:w-[420px]"
+            className="border-border bg-card/95 fixed right-4 bottom-22 z-50 flex h-[82vh] max-h-[640px] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl sm:right-7 sm:w-[440px]"
           >
             {/* Header */}
             <div className="border-border bg-card/80 flex items-center justify-between border-b px-4 py-3.5 backdrop-blur-md">
@@ -329,59 +456,61 @@ export function Chatbot() {
 
             {/* Messages Scroll Area */}
             <div className="flex-1 space-y-4 overflow-y-auto p-4">
-              {messages.map((message) => {
-                const isUser = message.role === "user";
+              {messages
+                .filter((m) => m.content.length > 0)
+                .map((message) => {
+                  const isUser = message.role === "user";
 
-                return (
-                  <div
-                    key={message.id}
-                    className={cn(
-                      "flex items-start gap-2.5",
-                      isUser ? "flex-row-reverse" : "flex-row",
-                    )}
-                  >
-                    {/* Avatar */}
+                  return (
                     <div
+                      key={message.id}
                       className={cn(
-                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs",
-                        isUser
-                          ? "bg-accent text-accent-foreground"
-                          : "border-border bg-card-hover text-accent border",
+                        "flex items-start gap-2.5",
+                        isUser ? "flex-row-reverse" : "flex-row",
                       )}
                     >
-                      {isUser ? <User size={14} /> : <Bot size={14} />}
-                    </div>
-
-                    {/* Bubble */}
-                    <div
-                      className={cn(
-                        "max-w-[82%] rounded-2xl px-4 py-3 shadow-sm",
-                        isUser
-                          ? "bg-accent text-accent-foreground rounded-tr-xs"
-                          : "border-border bg-card text-foreground rounded-tl-xs border",
-                      )}
-                    >
-                      <FormattedMessage content={message.content} />
+                      {/* Avatar */}
                       <div
                         className={cn(
-                          "mt-1 text-right text-[10px]",
+                          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs",
                           isUser
-                            ? "text-blue-100/70"
-                            : "text-foreground-subtle",
+                            ? "bg-accent text-accent-foreground"
+                            : "border-border bg-card-hover text-accent border",
                         )}
                       >
-                        {message.timestamp.toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {isUser ? <User size={14} /> : <Bot size={14} />}
+                      </div>
+
+                      {/* Bubble */}
+                      <div
+                        className={cn(
+                          "max-w-[85%] rounded-2xl px-4 py-3 shadow-sm",
+                          isUser
+                            ? "bg-accent text-accent-foreground rounded-tr-xs"
+                            : "border-border bg-card text-foreground rounded-tl-xs border",
+                        )}
+                      >
+                        <FormattedMessage content={message.content} />
+                        <div
+                          className={cn(
+                            "mt-1 text-right text-[10px]",
+                            isUser
+                              ? "text-blue-100/70"
+                              : "text-foreground-subtle",
+                          )}
+                        >
+                          {message.timestamp.toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
 
-              {/* Typing indicator */}
-              {isLoading && (
+              {/* Typing indicator (only shown while awaiting first token) */}
+              {isAwaitingFirstChunk && (
                 <div className="flex items-start gap-2.5">
                   <div className="border-border bg-card-hover text-accent flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs">
                     <Bot size={14} />
@@ -410,7 +539,7 @@ export function Chatbot() {
                 </div>
               )}
 
-              {/* Suggested Questions (shown when conversation is new) */}
+              {/* Suggested Questions */}
               {messages.length <= 1 && !isLoading && (
                 <div className="mt-4 pt-2">
                   <p className="text-foreground-subtle mb-2.5 flex items-center gap-1 font-mono text-xs">
