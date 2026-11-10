@@ -141,6 +141,25 @@ export const siteConfig = {
       demo: "https://aman-aegis-ai.streamlit.app",
     },
     {
+      name: "Daily Hadith AI Agent — Autonomous Canonical Verification Engine",
+      description:
+        "A production autonomous agentic broadcast system engineered with LangGraph for canonical text integrity and zero-hallucination verification. Features strict calendar-day delivery idempotency, Groq LLM contextual reflection synthesis, automated multi-channel Telegram dispatch, and resilient GitHub Actions cloud orchestration backed by 106 automated tests.",
+      tags: [
+        "Python",
+        "LangGraph",
+        "FastAPI",
+        "Groq",
+        "PostgreSQL",
+        "SQLAlchemy",
+        "Docker",
+        "Telegram Bot API",
+        "GitHub Actions",
+        "CI/CD",
+      ],
+      github: "https://github.com/Amankhan1009/daily-hadith-ai-agent",
+      demo: "https://t.me/daily_hadith_aman_bot",
+    },
+    {
       name: "Postgres MCP Server",
       description:
         "Production-grade AI database assistant for PostgreSQL with schema introspection, injection-hardened SQL execution, and Groq-powered SQL generation, explanation, optimization, and business insights.",
