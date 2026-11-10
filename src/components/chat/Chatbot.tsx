@@ -30,7 +30,7 @@ const SUGGESTED_PROMPTS = [
 const INITIAL_WELCOME: Message = {
   id: "welcome",
   role: "assistant",
-  content: `Hello! 👋 I'm **Aman's AI Portfolio Assistant**, powered by Groq. 
+  content: `Hello! 👋 I'm **Aman's AI Portfolio Assistant**.
 
 I can help you explore Aman's technical skills, production AI architectures, Agentic systems, and work experience. Feel free to ask anything about his projects, or pick a suggested topic below!`,
   timestamp: new Date(),
@@ -302,7 +302,7 @@ export function Chatbot() {
                   </div>
                   <p className="text-foreground-subtle flex items-center gap-1 font-mono text-[11px]">
                     <Sparkles size={10} className="text-accent" />
-                    Groq • openai/gpt-oss-120b
+                    Interactive Portfolio Agent
                   </p>
                 </div>
               </div>
